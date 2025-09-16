@@ -1,4 +1,5 @@
 import { lexicalEditor } from '@payloadcms/richtext-lexical'
+import { searchPlugin } from '@payloadcms/plugin-search'
 import { fileURLToPath } from 'node:url'
 import path from 'path'
 
@@ -23,6 +24,14 @@ export default buildConfigWithDefaults({
   globals: [
     // ...add more globals here
     MenuGlobal,
+  ],
+  plugins: [
+    searchPlugin({
+      collections: [postsSlug],
+      defaultPriorities: {
+        [postsSlug]: 10,
+      },
+    }),
   ],
   onInit: async (payload) => {
     await payload.create({
