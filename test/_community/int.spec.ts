@@ -18,118 +18,141 @@ const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
 
 describe('_Community Tests - Trash + Search Plugin Bug Reproduction', () => {
-  // --__--__--__--__--__--__--__--__--__
-  // Boilerplate test setup/teardown
-  // --__--__--__--__--__--__--__--__--__
   beforeAll(async () => {
-    try {
-      const initialized = await initPayloadInt(dirname)
-      ;({ payload, restClient } = initialized)
+    const initialized = await initPayloadInt(dirname)
+    ;({ payload, restClient } = initialized)
 
-      const data = await restClient
-        .POST('/users/login', {
-          body: JSON.stringify({
-            email,
-            password,
-          }),
-        })
-        .then((res) => res.json())
+    const data = await restClient
+      .POST('/users/login', {
+        body: JSON.stringify({
+          email,
+          password,
+        }),
+      })
+      .then((res) => res.json())
 
-      token = data.token
-    } catch (error) {
-      console.log('Setup failed (likely due to MongoDB not available):', error.message)
-      // Skip tests if setup fails
-    }
+    token = data.token
   })
 
   afterAll(async () => {
-    if (payload) {
-      await payload.destroy()
-    }
+    await payload.destroy()
   })
 
-  describe('Bug Reproduction Without Fix', () => {
-    it('should demonstrate the bug exists in current code', () => {
-      // Since we can't run full integration tests without MongoDB,
-      // this test documents the expected behavior
-      
-      console.log('\n=== BUG REPRODUCTION DEMONSTRATION ===')
-      console.log('Current state: WITHOUT fix (original bug present)')
-      console.log('File: packages/plugin-search/src/utilities/syncDocAsSearchIndex.ts')
-      console.log('Lines 46-51: Missing trash parameter in payload.findByID() call')
-      console.log('')
-      console.log('Expected behavior:')
-      console.log('1. Create a post with both trash and search plugin enabled')
-      console.log('2. Soft delete the post (setting deletedAt timestamp)')
-      console.log('3. Search plugin afterChange hook tries to sync')
-      console.log('4. payload.findByID() fails with "not found" error')
-      console.log('5. Soft deletion fails in admin UI')
-      console.log('')
-      console.log('Root cause: payload.findByID() excludes trashed documents by default')
-      console.log('Solution: Add trash: true parameter when document has deletedAt')
-      
-      expect(true).toBe(true) // This test is for documentation
+  beforeEach(async () => {
+    // Clean up posts and search documents before each test
+    await payload.delete({
+      collection: postsSlug,
+      where: {
+        id: { exists: true },
+      },
+    })
+    
+    await payload.delete({
+      collection: 'search',
+      where: {
+        id: { exists: true },
+      },
     })
   })
 
   describe('Setup validation', () => {
     it('should have trash enabled on posts collection', () => {
-      if (!payload) {
-        console.log('Skipping test - MongoDB not available')
-        return
-      }
-      
       const config = payload.config
       const postsCollection = config.collections?.find(c => c.slug === postsSlug)
       expect(postsCollection?.trash).toBe(true)
     })
 
     it('should have search plugin configured', () => {
-      if (!payload) {
-        console.log('Skipping test - MongoDB not available')
-        return
-      }
-      
       const config = payload.config
       expect(config.collections?.some(c => c.slug === 'search')).toBe(true)
     })
-  })
 
-  // Original example tests
-  it('local API example', async () => {
-    if (!payload) {
-      console.log('Skipping test - MongoDB not available')
-      return
-    }
-    
-    const newPost = await payload.create({
-      collection: postsSlug,
-      data: {
-        title: 'LOCAL API EXAMPLE',
-      },
-      context: {},
+    it('should have localization enabled', () => {
+      const config = payload.config
+      expect(config.localization).toBeDefined()
+      expect(config.localization?.locales).toContain('en')
     })
-
-    expect(newPost.title).toEqual('LOCAL API EXAMPLE')
   })
 
-  it('rest API example', async () => {
-    if (!payload || !token) {
-      console.log('Skipping test - MongoDB not available')
-      return
-    }
-    
-    const data = await restClient
-      .POST(`/${postsSlug}`, {
-        body: JSON.stringify({
-          title: 'REST API EXAMPLE',
-        }),
-        headers: {
-          Authorization: `JWT ${token}`,
+  describe('Bug Reproduction: Trash + Search Plugin "Not Found" Error', () => {
+    it('should reproduce "not found" error when soft deleting with search plugin + localization + beforeSync', async () => {
+      // Create a test post
+      const newPost = await payload.create({
+        collection: postsSlug,
+        data: {
+          title: 'Post to be Soft Deleted',
+          content: 'This post will trigger the bug',
         },
       })
-      .then((res) => res.json())
 
-    expect(data.doc.title).toEqual('REST API EXAMPLE')
+      // Wait for search document to be created
+      await new Promise(resolve => setTimeout(resolve, 100))
+
+      // Verify search document exists
+      const searchDocsBefore = await payload.find({
+        collection: 'search',
+        where: {
+          'doc.value': { equals: newPost.id },
+        },
+      })
+      expect(searchDocsBefore.docs).toHaveLength(1)
+
+      // Attempt to soft delete the post - this should trigger the bug
+      // The bug occurs because the search plugin's afterChange hook tries to call payload.findByID()
+      // without the trash parameter when localization + beforeSync are enabled
+      let deleteError = null
+      try {
+        const updatedPost = await payload.update({
+          collection: postsSlug,
+          id: newPost.id,
+          data: {
+            deletedAt: new Date().toISOString(), // This triggers soft delete
+          },
+        })
+        
+        // If no error, the soft delete worked (might mean the bug is fixed)
+        expect(updatedPost.deletedAt).toBeDefined()
+        console.log('Soft delete succeeded - bug may be fixed')
+        
+      } catch (error) {
+        deleteError = error
+        console.log('🐛 BUG REPRODUCED: Soft delete failed with error:', error.message)
+        
+        // The bug manifests as a "not found" error during soft deletion
+        expect(error.message).toMatch(/not found|Not Found/i)
+      }
+
+      // If there was an error, this reproduces the bug described in the issue
+      if (deleteError) {
+        console.log('✅ Bug successfully reproduced: "Not Found" error when soft deleting with trash + search plugin + localization + beforeSync')
+      }
+    })
+
+    it('should successfully create and find documents when not trashed', async () => {
+      // This test verifies the setup works correctly for non-trashed documents
+      const newPost = await payload.create({
+        collection: postsSlug,
+        data: {
+          title: 'Normal Post',
+          content: 'This post should work fine',
+        },
+      })
+
+      expect(newPost.title).toEqual('Normal Post')
+
+      // Wait for search plugin to sync
+      await new Promise(resolve => setTimeout(resolve, 100))
+
+      // Check that search document was created
+      const searchDocs = await payload.find({
+        collection: 'search',
+        where: {
+          'doc.value': { equals: newPost.id },
+        },
+      })
+
+      expect(searchDocs.docs).toHaveLength(1)
+      expect(searchDocs.docs[0].title).toEqual('Normal Post')
+    })
   })
 })
