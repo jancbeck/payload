@@ -1,3 +1,4 @@
+import { searchPlugin } from '@payloadcms/plugin-search'
 import { lexicalEditor } from '@payloadcms/richtext-lexical'
 import { fileURLToPath } from 'node:url'
 import path from 'path'
@@ -23,6 +24,26 @@ export default buildConfigWithDefaults({
   globals: [
     // ...add more globals here
     MenuGlobal,
+  ],
+  // Add localization to trigger the bug
+  localization: {
+    locales: ['en', 'es'],
+    defaultLocale: 'en',
+  },
+  plugins: [
+    searchPlugin({
+      collections: [postsSlug],
+      defaultPriorities: {
+        [postsSlug]: 10,
+      },
+      // Add beforeSync to trigger the problematic code path
+      beforeSync: ({ originalDoc, searchDoc }) => {
+        return {
+          ...searchDoc,
+          title: originalDoc?.title || searchDoc.title,
+        }
+      },
+    }),
   ],
   onInit: async (payload) => {
     await payload.create({

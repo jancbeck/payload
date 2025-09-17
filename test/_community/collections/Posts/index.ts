@@ -10,6 +10,7 @@ export const PostsCollection: CollectionConfig = {
     useAsTitle: 'title',
     enableListViewSelectAPI: true,
   },
+  trash: true, // Enable trash feature
   fields: [
     {
       name: 'title',
