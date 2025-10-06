@@ -28,7 +28,7 @@ describe('Autolink Bug with Custom Fields', () => {
   beforeAll(async ({ browser }, testInfo) => {
     testInfo.setTimeout(TEST_TIMEOUT_LONG)
     process.env.SEED_IN_CONFIG_ONINIT = 'false'
-    ;({ serverURL } = await initPayloadE2ENoConfig<Config>({
+    ;({ serverURL } = await initPayloadE2ENoConfig({
       dirname,
     }))
 

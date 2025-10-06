@@ -20,6 +20,10 @@ export const linkValidation = (
      * Run fieldSchemasToFormState as that properly validates link fields and link sub-fields
      */
 
+    // For AutoLinkNodes, skip validation of custom fields since they are automatically created
+    // and don't go through the link editor UI where users can fill in custom required fields
+    const isAutoLink = node.type === 'autolink'
+
     const result = await fieldSchemasToFormState({
       id,
       collectionSlug,
@@ -34,6 +38,7 @@ export const linkValidation = (
       renderAllFields: false,
       req,
       schemaPath: '',
+      skipValidation: isAutoLink, // Skip validation for autolinks
     })
 
     const errorPathsSet = new Set<string>()
