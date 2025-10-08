@@ -5,6 +5,8 @@ import path from 'path'
 import { wait } from 'payload/shared'
 import { fileURLToPath } from 'url'
 
+import type { Config } from '../../payload-types.js'
+
 import {
   ensureCompilationIsDone,
   initPageConsoleErrorCatch,
@@ -426,6 +428,33 @@ describe('Rich Text', () => {
       await expect(richTextField).toBeVisible()
       const richTextValue = await richTextField.innerText()
       expect(richTextValue).toContain('Rich text')
+    })
+
+    test('should create and save autolink with custom link fields', async () => {
+      const url: AdminUrlUtil = new AdminUrlUtil(serverURL, 'rich-text-fields')
+
+      // Navigate to create new document
+      await page.goto(url.create)
+      await wait(1000)
+
+      // Fill in the title
+      await page.locator('#field-title').fill('Autolink Test Document')
+      await wait(500)
+
+      // Click into the lexicalCustomFields editor (which has custom link fields)
+      const lexicalEditor = page
+        .locator('#field-lexicalCustomFields')
+        .locator('.ContentEditable__root')
+        .first()
+      await lexicalEditor.click()
+      await wait(500)
+
+      // Type text with an email address (which should trigger autolink)
+      await page.keyboard.type('Contact me at test@example.com')
+      await wait(1500) // Wait for autolink to be created
+
+      // Try to save the document
+      await saveDocAndAssert(page)
     })
   })
 })
