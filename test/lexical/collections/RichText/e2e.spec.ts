@@ -429,20 +429,15 @@ describe('Rich Text', () => {
     })
 
     test('should create and save autolink with custom link fields', async () => {
-      const url: AdminUrlUtil = new AdminUrlUtil(serverURL, 'rich-text-fields')
-
-      // Navigate to create new document
-      await page.goto(url.create)
+      await navigateToRichTextFields()
       await wait(1000)
 
-      // Fill in the title
-      await page.locator('#field-title').fill('Autolink Test Document')
-      await wait(500)
+      const field = page.locator('.rich-text', {
+        has: page.locator('#field-richTextCustomFields'),
+      })
 
       // Click into the lexicalCustomFields editor (which has custom link fields)
-      const lexicalEditor = page
-        .locator('#field-richTextCustomFields')
-      await lexicalEditor.click()
+      await field.click()
       await wait(500)
 
       // Type text with an email address (which should trigger autolink)
