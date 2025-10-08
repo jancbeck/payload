@@ -441,14 +441,14 @@ describe('Rich Text', () => {
 
       // Click into the lexicalCustomFields editor (which has custom link fields)
       const lexicalEditor = page
-        .locator('#field-lexicalCustomFields')
+        .locator('#field-richTextCustomFields')
         .locator('.ContentEditable__root')
         .first()
       await lexicalEditor.click()
       await wait(500)
 
       // Type text with an email address (which should trigger autolink)
-      await page.keyboard.type('Contact me at test@example.com')
+      await page.keyboard.type('Contact me at test@example.com ')
       await wait(1500) // Wait for autolink to be created
 
       // Try to save the document
