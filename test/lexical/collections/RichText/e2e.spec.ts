@@ -5,8 +5,6 @@ import path from 'path'
 import { wait } from 'payload/shared'
 import { fileURLToPath } from 'url'
 
-import type { Config } from '../../payload-types.js'
-
 import {
   ensureCompilationIsDone,
   initPageConsoleErrorCatch,
