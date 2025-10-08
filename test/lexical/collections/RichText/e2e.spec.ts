@@ -444,6 +444,10 @@ describe('Rich Text', () => {
       await page.keyboard.type('Contact me at test@example.com ')
       await wait(1500) // Wait for autolink to be created
 
+      // Verify the autolink was created with the correct text
+      const autolink = field.locator('.rich-text-link >> text="test@example.com"')
+      await expect(autolink).toBeVisible()
+
       // Try to save the document
       await saveDocAndAssert(page)
     })
