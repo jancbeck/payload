@@ -442,8 +442,6 @@ describe('Rich Text', () => {
       // Click into the lexicalCustomFields editor (which has custom link fields)
       const lexicalEditor = page
         .locator('#field-richTextCustomFields')
-        .locator('.ContentEditable__root')
-        .first()
       await lexicalEditor.click()
       await wait(500)
 
